@@ -1,8 +1,54 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Api\AnalyticsController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\ExpenseController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\PurchaseOrderController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\SaleController;
+use App\Http\Controllers\Api\SaleVoidController;
+use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\StockAdjustmentController;
+use App\Http\Controllers\Api\StockInController;
+use App\Http\Controllers\Api\StockMovementController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::get('/auth/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+Route::get('/settings', [SettingsController::class, 'index']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('permission:dashboard.view');
+    Route::get('/products', [CatalogController::class, 'products'])->middleware('permission:products.view');
+    Route::post('/products', [ProductController::class, 'store'])->middleware('permission:products.create');
+    Route::patch('/products/{product}', [ProductController::class, 'update'])->middleware('permission:products.update');
+    Route::get('/categories', [CatalogController::class, 'categories'])->middleware('permission:categories.manage');
+    Route::get('/suppliers', [CatalogController::class, 'suppliers'])->middleware('permission:suppliers.view');
+    Route::get('/stock', [CatalogController::class, 'stock'])->middleware('permission:stock.view');
+    Route::get('/stock/movements', [StockMovementController::class, 'index'])->middleware('permission:stock.view');
+    Route::post('/stock/in', [StockInController::class, 'store'])->middleware('permission:stock.in');
+    Route::post('/stock/adjustments', [StockAdjustmentController::class, 'adjust'])->middleware('permission:stock.adjust');
+    Route::post('/stock-adjustments', [StockAdjustmentController::class, 'adjust'])->middleware('permission:stock.adjust');
+    Route::get('/purchase-orders', [PurchaseOrderController::class, 'index'])->middleware('permission:purchases.view');
+    Route::post('/purchase-orders', [PurchaseOrderController::class, 'store'])->middleware('permission:purchases.create,purchases.receive');
+    Route::get('/transactions', [SaleController::class, 'index']);
+    Route::get('/sales', [SaleController::class, 'index']);
+    Route::get('/sales/{sale}/receipt', [SaleController::class, 'receipt']);
+    Route::get('/sales/{sale}', [SaleController::class, 'show']);
+    Route::post('/sales', [SaleController::class, 'store']);
+    Route::post('/sales/{sale}/void', [SaleVoidController::class, 'void'])->middleware('permission:sales.void');
+    Route::get('/analytics', [AnalyticsController::class, 'index'])->middleware('permission:analytics.view');
+    Route::get('/reports', [AnalyticsController::class, 'reports'])->middleware('permission:reports.view');
+    Route::get('/expenses', [ExpenseController::class, 'index'])->middleware('permission:expenses.view');
+    Route::post('/expenses', [ExpenseController::class, 'store'])->middleware('permission:expenses.manage');
+    Route::get('/users', [CatalogController::class, 'users'])->middleware('permission:users.view');
+    Route::get('/roles', [CatalogController::class, 'roles'])->middleware('permission:roles.view');
+    Route::get('/permission-matrix', [RoleController::class, 'matrix'])->middleware('permission:roles.view');
+    Route::patch('/roles/{role}/permissions', [RoleController::class, 'updateStaffOptionalPermissions'])->middleware('permission:roles.manage');
+    Route::get('/activity-log', [ReportController::class, 'activityLog'])->middleware('permission:reports.view');
+});
