@@ -23,7 +23,9 @@ class SaleController
             return response()->json($query->latest()->get()->map(fn (Sale $sale) => $this->limitedResource($sale)));
         }
 
-        return response()->json($query->latest()->get()->map(fn (Sale $sale) => $this->fullResource($sale)));
+        $includeCosts = $request->user()->hasPermission('analytics.view');
+
+        return response()->json($query->latest()->get()->map(fn (Sale $sale) => $this->fullResource($sale, $includeCosts)));
     }
 
     public function show(Request $request, Sale $sale)
@@ -35,7 +37,7 @@ class SaleController
         $resource = ($user->hasPermission('sales.view_limited') || $user->hasRole('staff'))
             && ! $user->hasPermission('sales.view_all')
             ? $this->limitedResource($sale)
-            : $this->fullResource($sale);
+            : $this->fullResource($sale, $user->hasPermission('analytics.view'));
 
         return response()->json($resource);
     }
@@ -63,7 +65,7 @@ class SaleController
     {
         $user = $request->user();
 
-        if (! $user || (! $user->hasPermission('sales.create') && ! $user->hasPermission('pos.use'))) {
+        if (! $user || ! $user->hasPermission('pos.use')) {
             abort(403, 'You are not allowed to create sales.');
         }
 
@@ -73,6 +75,8 @@ class SaleController
             'items.*.product_id' => ['required', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'items.*.unit_cost' => ['prohibited'],
+            'items.*.cost_source' => ['prohibited'],
         ]);
 
         $sale = DB::transaction(function () use ($validated, $user) {
@@ -94,15 +98,7 @@ class SaleController
                 $lineTotal = (float) $item['quantity'] * (float) $item['unit_price'];
                 $subtotal += $lineTotal;
 
-                SaleItem::query()->create([
-                    'sale_id' => $sale->id,
-                    'product_id' => $item['product_id'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'line_total' => $lineTotal,
-                ]);
-
-                $this->inventoryService->adjustStock(
+                $stockAdjustment = $this->inventoryService->adjustStockAndGetCost(
                     (int) $item['product_id'],
                     -(int) $item['quantity'],
                     'sale',
@@ -110,6 +106,16 @@ class SaleController
                     $sale->invoice_number,
                     'Point-of-sale sale'
                 );
+
+                SaleItem::query()->create([
+                    'sale_id' => $sale->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'unit_cost' => round((float) $stockAdjustment['unit_cost'], 2),
+                    'cost_source' => 'recorded',
+                    'line_total' => $lineTotal,
+                ]);
             }
 
             $taxAmount = $subtotal * 0.12;
@@ -166,7 +172,7 @@ class SaleController
         ];
     }
 
-    private function fullResource(Sale $sale): array
+    private function fullResource(Sale $sale, bool $includeCosts = false): array
     {
         $sale->loadMissing(['user', 'items.product']);
 
@@ -188,6 +194,10 @@ class SaleController
                 'quantity' => (int) $item->quantity,
                 'unit_price' => (float) $item->unit_price,
                 'line_total' => (float) $item->line_total,
+                ...($includeCosts ? [
+                    'unit_cost' => (float) $item->unit_cost,
+                    'cost_source' => $item->cost_source,
+                ] : []),
             ])->values(),
         ];
     }

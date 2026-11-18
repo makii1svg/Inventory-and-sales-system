@@ -50,11 +50,10 @@ class RolePermissionsApiTest extends TestCase
 
         $this->actingAs($admin, 'sanctum')
             ->patchJson('/api/roles/'.$role->id.'/permissions', [
-                'optional_permissions' => ['pos.use', 'sales.view_limited'],
+                'optional_permissions' => ['sales.view_limited'],
             ])
             ->assertOk()
-            ->assertJsonPath('optional_permissions.0', 'pos.use')
-            ->assertJsonPath('optional_permissions.1', 'sales.view_limited');
+            ->assertJsonPath('optional_permissions', ['sales.view_limited']);
 
         $response = $this->actingAs($staff, 'sanctum')
             ->getJson('/api/sales')
@@ -93,13 +92,36 @@ class RolePermissionsApiTest extends TestCase
             ->assertJsonPath('optional_permissions', []);
     }
 
-    public function test_staff_pos_permission_enables_checkout_but_not_sales_history(): void
+    public function test_staff_cannot_use_pos_even_when_limited_sales_access_is_enabled(): void
     {
         $admin = $this->userWithRole('admin');
         $staff = $this->userWithRole('staff');
         $role = Role::query()->where('name', 'staff')->firstOrFail();
-        $product = Product::query()->create([
-            'sku' => 'STAFF-POS-001',
+
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson('/api/roles/'.$role->id.'/permissions', [
+                'optional_permissions' => ['sales.view_limited'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('optional_permissions', ['sales.view_limited']);
+
+        $this->actingAs($staff, 'sanctum')
+            ->getJson('/api/pos/products')
+            ->assertForbidden();
+
+        $this->actingAs($staff, 'sanctum')
+            ->postJson('/api/sales', [
+                'payment_method' => 'cash',
+                'items' => [],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_pos_catalog_is_available_to_pos_users_without_exposing_cost_price(): void
+    {
+        $cashier = $this->userWithRole('cashier');
+        Product::query()->create([
+            'sku' => 'POS-CATALOG-001',
             'name' => 'Rice',
             'unit_price' => 80,
             'cost_price' => 45,
@@ -108,38 +130,20 @@ class RolePermissionsApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $this->actingAs($admin, 'sanctum')
-            ->patchJson('/api/roles/'.$role->id.'/permissions', [
-                'optional_permissions' => ['pos.use'],
-            ])
-            ->assertOk();
-
-        $saleResponse = $this->actingAs($staff, 'sanctum')
-            ->postJson('/api/sales', [
-                'payment_method' => 'cash',
-                'items' => [
-                    ['product_id' => $product->id, 'quantity' => 1, 'unit_price' => 80],
-                ],
-            ])
-            ->assertCreated();
-        $this->assertSame(
-            ['receipt_number', 'date', 'time', 'cashier', 'status', 'items'],
-            array_keys($saleResponse->json())
-        );
-        $saleId = Sale::query()->where('user_id', $staff->id)->firstOrFail()->id;
-
-        $this->actingAs($staff, 'sanctum')
-            ->getJson('/api/sales')
-            ->assertForbidden();
-
-        $this->actingAs($staff, 'sanctum')
-            ->getJson('/api/sales/'.$saleId.'/receipt')
+        $response = $this->actingAs($cashier, 'sanctum')
+            ->getJson('/api/pos/products')
             ->assertOk()
-            ->assertJsonMissingPath('total_amount')
-            ->assertJsonMissingPath('payment_method');
+            ->assertJsonPath('0.name', 'Rice')
+            ->assertJsonPath('0.unit_price', 80)
+            ->assertJsonMissingPath('0.cost_price');
+
+        $this->assertSame(
+            ['id', 'sku', 'name', 'barcode', 'unit', 'category', 'unit_price', 'stock_quantity'],
+            array_keys($response->json('0'))
+        );
     }
 
-    public function test_cashier_can_only_view_own_sales_and_print_own_receipt(): void
+    public function test_cashier_is_limited_to_pos_and_can_print_own_receipt(): void
     {
         $cashier = $this->userWithRole('cashier');
         $otherCashier = $this->userWithRole('cashier');
@@ -147,14 +151,20 @@ class RolePermissionsApiTest extends TestCase
         $otherSale = $this->createSale($otherCashier, 'INV-CASHIER-OTHER');
 
         $this->actingAs($cashier, 'sanctum')
+            ->getJson('/api/dashboard')
+            ->assertForbidden();
+
+        $this->actingAs($cashier, 'sanctum')
             ->getJson('/api/sales')
-            ->assertOk()
-            ->assertJsonCount(1)
-            ->assertJsonPath('0.invoice_number', 'INV-CASHIER-OWN');
+            ->assertForbidden();
 
         $this->actingAs($cashier, 'sanctum')
             ->getJson('/api/sales/'.$otherSale->id)
-            ->assertNotFound();
+            ->assertForbidden();
+
+        $this->actingAs($cashier, 'sanctum')
+            ->getJson('/api/sales/'.$ownSale->id)
+            ->assertForbidden();
 
         $this->actingAs($cashier, 'sanctum')
             ->getJson('/api/sales/'.$ownSale->id.'/receipt')
@@ -164,6 +174,26 @@ class RolePermissionsApiTest extends TestCase
         $this->actingAs($cashier, 'sanctum')
             ->getJson('/api/sales/'.$otherSale->id.'/receipt')
             ->assertForbidden();
+
+        $this->assertSame(['pos.use'], Role::query()->where('name', 'cashier')->firstOrFail()->permissions);
+    }
+
+    public function test_cashier_cannot_use_permissions_left_on_an_existing_role(): void
+    {
+        $cashier = $this->userWithRole('cashier');
+        $cashierRole = Role::query()->where('name', 'cashier')->firstOrFail();
+        $cashierRole->update(['permissions' => ['*', 'dashboard.view', 'sales.view_own']]);
+        $this->assertSame(['pos.use'], $cashier->fresh()->permissions);
+
+        foreach (['/api/dashboard', '/api/sales', '/api/products', '/api/suppliers', '/api/analytics'] as $path) {
+            $this->actingAs($cashier, 'sanctum')
+                ->getJson($path)
+                ->assertForbidden();
+        }
+
+        $this->actingAs($cashier, 'sanctum')
+            ->getJson('/api/pos/products')
+            ->assertOk();
     }
 
     public function test_permission_matrix_keeps_admin_read_only_and_lists_staff_optional_group(): void
@@ -180,7 +210,7 @@ class RolePermissionsApiTest extends TestCase
             ->assertJsonPath('roles.0.editable', false);
 
         $groups = collect($matrix->json('groups'))->keyBy('name');
-        $this->assertSame(['pos.use', 'sales.view_limited'], $groups['Optional for staff']['permissions']);
+        $this->assertSame(['sales.view_limited'], $groups['Optional for staff']['permissions']);
         $this->assertSame(['*'], $matrix->json('roles.0.permissions'));
 
         $this->actingAs($admin, 'sanctum')
@@ -196,12 +226,47 @@ class RolePermissionsApiTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_admin_can_create_users_and_change_active_status(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $staff = $this->userWithRole('staff');
+
+        $created = $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/users', [
+                'name' => 'New Cashier',
+                'email' => 'new.cashier@sunrise.local',
+                'password' => 'password123',
+                'role' => 'cashier',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('name', 'New Cashier')
+            ->assertJsonPath('status', 'active');
+
+        $userId = $created->json('id');
+        $this->actingAs($admin, 'sanctum')
+            ->patchJson('/api/users/'.$userId, ['status' => 'inactive'])
+            ->assertOk()
+            ->assertJsonPath('status', 'inactive');
+
+        $this->actingAs($staff, 'sanctum')
+            ->postJson('/api/users', [
+                'name' => 'Blocked User',
+                'email' => 'blocked@sunrise.local',
+                'password' => 'password123',
+                'role' => 'cashier',
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', ['id' => $userId, 'status' => 'inactive']);
+        $this->assertDatabaseMissing('users', ['email' => 'blocked@sunrise.local']);
+    }
+
     public function test_role_seeder_migrates_legacy_roles_and_preserves_staff_optional_toggles(): void
     {
         $staffRole = Role::query()->create([
             'name' => 'staff',
             'display_name' => 'Staff',
-            'permissions' => [...Role::defaultPermissions('staff'), 'pos.use'],
+            'permissions' => [...Role::defaultPermissions('staff'), 'sales.view_limited'],
         ]);
         $legacyAdmin = Role::query()->create([
             'name' => 'administrator',
@@ -221,7 +286,7 @@ class RolePermissionsApiTest extends TestCase
         (new RoleSeeder)->run();
 
         $this->assertSame(
-            [...Role::defaultPermissions('staff'), 'pos.use'],
+            [...Role::defaultPermissions('staff'), 'sales.view_limited'],
             Role::query()->where('name', 'staff')->firstOrFail()->permissions
         );
         $this->assertSame('admin', $adminUser->fresh()->roles()->firstOrFail()->name);

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { TabsList } from '../components/shared/ui'
+import { PageHeader, TabsList } from '../components/shared/ui'
 import { useAuth } from '../context/AuthContext'
 import { canAccessTab } from '../lib/permissions'
 import ForbiddenPage from './ForbiddenPage'
@@ -42,6 +42,11 @@ export default function SalesSectionPage({ activeTab }) {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title={activeTab === 'pos' ? 'Sales / POS' : 'Transaction History'}
+        subtitle={activeTab === 'pos' ? 'Counter sales and quick checkout.' : 'Review your permitted transaction history.'}
+        showDateRange={false}
+      />
       <TabsList
         value={activeTab}
         onValueChange={(value) => navigate(`/sales/${value}?tab=${value}`)}

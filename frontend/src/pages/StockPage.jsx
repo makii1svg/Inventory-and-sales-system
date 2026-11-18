@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
 
-import { Badge, Button, DataTable, FormField, SelectInput, TextInput } from '../components/shared/ui'
+import { Badge, Button, DataTable, FormField, KpiCard, SelectInput, TextInput } from '../components/shared/ui'
 import { apiClient } from '../lib/api'
 
 const reasons = [
@@ -30,12 +31,15 @@ function StockLevelsPage() {
     queryKey: ['stock-levels'],
     queryFn: async () => (await apiClient.get('/api/stock')).data,
   })
+  const outOfStock = data.filter((product) => Number(product.stock_quantity) === 0).length
+  const lowStock = data.filter((product) => Number(product.low_stock) && Number(product.stock_quantity) > 0).length
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Stock levels</h2>
-        <p className="text-sm text-slate-500">Track on-hand inventory and reorder thresholds.</p>
+    <section className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Products tracked" value={data.length.toLocaleString()} icon={ArrowUpFromLine} trendUnavailable loading={isLoading} footer="Current inventory records" />
+        <KpiCard label="Low stock" value={lowStock.toLocaleString()} icon={AlertTriangle} trendUnavailable loading={isLoading} footer="At or below reorder level" />
+        <KpiCard label="Out of stock" value={outOfStock.toLocaleString()} icon={ArrowDownToLine} trendUnavailable loading={isLoading} footer="Zero on-hand quantity" />
       </div>
       <RequestError error={error} />
       <DataTable
@@ -151,52 +155,39 @@ function StockMovementsPage() {
   }
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Stock in and out</h2>
-        <p className="text-sm text-slate-500">Review movements and record reason-coded adjustments.</p>
-      </div>
-
+    <section className="space-y-5">
       <RequestError error={catalogError} />
       {success ? <p role="status" className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{success}</p> : null}
 
-      <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900">Movement ledger</h3>
-            <p className="text-sm text-slate-500">Recent stock changes from the server.</p>
-          </div>
-          <FormField label="Direction">
-            <SelectInput value={direction} onChange={(event) => setDirection(event.target.value)} aria-label="Movement direction">
-              <option value="">All movements</option>
-              <option value="in">In</option>
-              <option value="out">Out</option>
-            </SelectInput>
-          </FormField>
-        </div>
-        <RequestError error={movementsQuery.error} />
-        <DataTable
-          columns={[
-            { key: 'created_at', label: 'Date', render: (value) => value ? new Date(value).toLocaleString() : '—' },
-            { key: 'product', label: 'Product' },
-            { key: 'sku', label: 'SKU' },
-            { key: 'direction', label: 'Direction', render: (value) => value === 'in' ? 'In' : 'Out' },
-            { key: 'movement_type', label: 'Type' },
-            { key: 'quantity', label: 'Quantity' },
-            { key: 'reason_code', label: 'Reason', render: (value) => value?.replaceAll('_', ' ') ?? '—' },
-            { key: 'batch_no', label: 'Batch', render: (value) => value || '—' },
-            { key: 'user', label: 'User', render: (value) => value || '—' },
-          ]}
-          rows={movementsQuery.data ?? []}
-          loading={movementsQuery.isLoading}
-          query=""
-        />
-      </section>
+      <DataTable
+        columns={[
+          { key: 'created_at', label: 'Date', render: (value) => value ? new Date(value).toLocaleString() : '—' },
+          { key: 'product', label: 'Product' },
+          { key: 'sku', label: 'SKU' },
+          { key: 'direction', label: 'Direction', render: (value) => <Badge tone={value === 'in' ? 'positive' : 'warning'}>{value === 'in' ? 'In' : 'Out'}</Badge> },
+          { key: 'movement_type', label: 'Type' },
+          { key: 'quantity', label: 'Quantity' },
+          { key: 'reason_code', label: 'Reason', render: (value) => value?.replaceAll('_', ' ') ?? '—' },
+          { key: 'batch_no', label: 'Batch', render: (value) => value || '—' },
+          { key: 'user', label: 'User', render: (value) => value || '—' },
+        ]}
+        rows={movementsQuery.data ?? []}
+        loading={movementsQuery.isLoading}
+        query=""
+        emptyMessage="No stock movements are available."
+        toolbarActions={(
+          <SelectInput value={direction} onChange={(event) => setDirection(event.target.value)} aria-label="Movement direction" className="sm:w-44">
+            <option value="">All movements</option>
+            <option value="in">In</option>
+            <option value="out">Out</option>
+          </SelectInput>
+        )}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <form onSubmit={submitStockIn} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <form onSubmit={submitStockIn} className="flex min-h-[38rem] flex-col gap-4 rounded-xl border border-[#E6EAF2] bg-white p-5 shadow-soft max-[767px]:p-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">Stock in</h3>
+            <h2 className="text-sm font-semibold text-slate-900">Stock in</h2>
             <p className="text-sm text-slate-500">Add a new batch and update on-hand stock.</p>
           </div>
           <RequestError error={stockInMutation.error && !Object.keys(stockInErrors).length ? stockInMutation.error : null} />
@@ -231,14 +222,14 @@ function StockMovementsPage() {
           <FormField label="Note" error={stockInErrors.note?.[0]}>
             <TextInput value={stockIn.note} onChange={(event) => updateStockIn('note', event.target.value)} />
           </FormField>
-          <Button type="submit" disabled={stockInMutation.isPending || productsQuery.isLoading}>
+          <Button type="submit" className="mt-auto w-full" disabled={stockInMutation.isPending || productsQuery.isLoading}>
             {stockInMutation.isPending ? 'Recording...' : 'Record stock in'}
           </Button>
         </form>
 
-        <form onSubmit={submitStockOut} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <form onSubmit={submitStockOut} className="flex min-h-[38rem] flex-col gap-4 rounded-xl border border-[#E6EAF2] bg-white p-5 shadow-soft max-[767px]:p-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">Stock out</h3>
+            <h2 className="text-sm font-semibold text-slate-900">Stock out</h2>
             <p className="text-sm text-slate-500">Reduce stock for a recorded reason.</p>
           </div>
           <RequestError error={stockOutMutation.error && !Object.keys(stockOutErrors).length ? stockOutMutation.error : null} />
@@ -261,7 +252,7 @@ function StockMovementsPage() {
             <TextInput required value={stockOut.note} onChange={(event) => updateStockOut('note', event.target.value)} />
           </FormField>
           <p className="text-xs text-amber-700">Batch-specific stock-out is not supported by the available adjustment endpoint.</p>
-          <Button type="submit" variant="secondary" disabled={stockOutMutation.isPending || productsQuery.isLoading}>
+          <Button type="submit" variant="secondary" className="mt-auto w-full" disabled={stockOutMutation.isPending || productsQuery.isLoading}>
             {stockOutMutation.isPending ? 'Recording...' : 'Record stock out'}
           </Button>
         </form>

@@ -16,6 +16,13 @@ class CategorySeeder extends Seeder
             'Bakery',
             'Household',
             'Wellness',
+            'Rice and grains',
+            'Canned goods',
+            'Noodles and pasta',
+            'Dairy and eggs',
+            'Condiments and cooking',
+            'Snacks and sweets',
+            'Household and personal care',
         ] as $name) {
             Category::firstOrCreate([
                 'slug' => str($name)->slug()->toString(),

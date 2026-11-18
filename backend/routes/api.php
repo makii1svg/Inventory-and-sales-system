@@ -23,12 +23,16 @@ Route::get('/auth/me', [AuthController::class, 'me'])->middleware('auth:sanctum'
 Route::get('/settings', [SettingsController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::patch('/settings', [SettingsController::class, 'update'])->middleware('permission:settings.manage');
     Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('permission:dashboard.view');
     Route::get('/products', [CatalogController::class, 'products'])->middleware('permission:products.view');
+    Route::get('/pos/products', [CatalogController::class, 'posProducts'])->middleware('permission:pos.use');
     Route::post('/products', [ProductController::class, 'store'])->middleware('permission:products.create');
     Route::patch('/products/{product}', [ProductController::class, 'update'])->middleware('permission:products.update');
     Route::get('/categories', [CatalogController::class, 'categories'])->middleware('permission:categories.manage');
+    Route::post('/categories', [CatalogController::class, 'storeCategory'])->middleware('permission:categories.manage');
     Route::get('/suppliers', [CatalogController::class, 'suppliers'])->middleware('permission:suppliers.view');
+    Route::post('/suppliers', [CatalogController::class, 'storeSupplier'])->middleware('permission:suppliers.manage');
     Route::get('/stock', [CatalogController::class, 'stock'])->middleware('permission:stock.view');
     Route::get('/stock/movements', [StockMovementController::class, 'index'])->middleware('permission:stock.view');
     Route::post('/stock/in', [StockInController::class, 'store'])->middleware('permission:stock.in');
@@ -47,6 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/expenses', [ExpenseController::class, 'index'])->middleware('permission:expenses.view');
     Route::post('/expenses', [ExpenseController::class, 'store'])->middleware('permission:expenses.manage');
     Route::get('/users', [CatalogController::class, 'users'])->middleware('permission:users.view');
+    Route::post('/users', [CatalogController::class, 'storeUser'])->middleware('permission:users.manage');
+    Route::patch('/users/{user}', [CatalogController::class, 'updateUser'])->middleware('permission:users.manage');
     Route::get('/roles', [CatalogController::class, 'roles'])->middleware('permission:roles.view');
     Route::get('/permission-matrix', [RoleController::class, 'matrix'])->middleware('permission:roles.view');
     Route::patch('/roles/{role}/permissions', [RoleController::class, 'updateStaffOptionalPermissions'])->middleware('permission:roles.manage');

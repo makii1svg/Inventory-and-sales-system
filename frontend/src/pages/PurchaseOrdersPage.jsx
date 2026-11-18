@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { CheckCircle2, Clock3, PackageCheck, Plus } from 'lucide-react'
 
-import { Badge, Button, DataTable, FormField, Modal, SelectInput, TextInput } from '../components/shared/ui'
+import { Badge, Button, DataTable, FormField, KpiCard, Modal, SelectInput, TextInput } from '../components/shared/ui'
 import { useAuth } from '../context/AuthContext'
 import { apiClient } from '../lib/api'
 import { hasPermission } from '../lib/permissions'
@@ -15,6 +15,9 @@ export default function PurchaseOrdersPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
+  const [query, setQuery] = useState('')
+  const [supplierFilter, setSupplierFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [form, setForm] = useState({ supplier_id: '', product_id: '', quantity: '1', unit_cost: '', notes: '' })
   const isStaff = String(user?.role).toLowerCase() === 'staff'
   const canCreateAndReceive = hasPermission(user, ['purchases.create']) && hasPermission(user, ['purchases.receive'])
@@ -51,6 +54,10 @@ export default function PurchaseOrdersPage() {
     po: order.order_number,
     item_summary: (order.items ?? []).map((item) => `${item.product} × ${item.quantity}`).join(', '),
   }))
+  const filteredRows = rows.filter((order) => (
+    (!supplierFilter || order.supplier === supplierFilter)
+    && (!statusFilter || order.status === statusFilter)
+  ))
   const columns = [
     { key: 'po', label: 'PO' },
     { key: 'supplier', label: 'Supplier' },
@@ -65,11 +72,6 @@ export default function PurchaseOrdersPage() {
         </Badge>
       ),
     },
-    ...(canCancel ? [{
-      key: 'cancel',
-      label: 'Cancel',
-      render: () => <Button type="button" variant="danger" disabled title="Purchase-order cancellation endpoint is not available">Cancel</Button>,
-    }] : []),
   ]
 
   function updateForm(field, value) {
@@ -90,43 +92,42 @@ export default function PurchaseOrdersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Purchase orders</h2>
-          <p className="text-sm text-slate-500">Create orders and receive their items into stock.</p>
-        </div>
-        {canCreateAndReceive ? (
-          <Button type="button" className="gap-2" onClick={() => setShowCreate(true)}>
-            <Plus className="h-4 w-4" />
-            Create and receive PO
-          </Button>
-        ) : null}
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Total orders" value={rows.length.toLocaleString()} icon={PackageCheck} trendUnavailable loading={ordersQuery.isLoading} footer="Orders in the returned list" />
+        <KpiCard label="Pending orders" value={rows.filter((order) => order.status === 'pending').length.toLocaleString()} icon={Clock3} trendUnavailable loading={ordersQuery.isLoading} footer="Awaiting receipt" />
+        <KpiCard label="Received orders" value={rows.filter((order) => order.status === 'received').length.toLocaleString()} icon={CheckCircle2} trendUnavailable loading={ordersQuery.isLoading} footer="Items marked as received" />
       </div>
 
       {ordersQuery.error ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{ordersQuery.error?.response?.data?.message ?? 'Could not load purchase orders.'}</p> : null}
       {canCancel ? <p className="text-xs text-amber-700">Cancellation is unavailable because the API does not expose a cancellation endpoint.</p> : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-4 grid gap-4 md:grid-cols-3">
-          <FormField label="Search">
-            <TextInput placeholder="PO or supplier" />
-          </FormField>
-          <FormField label="Supplier">
-            <SelectInput>
-              <option>All suppliers</option>
-              {[...new Set(rows.map((order) => order.supplier).filter(Boolean))].map((supplier) => <option key={supplier}>{supplier}</option>)}
+      <DataTable
+        columns={columns}
+        rows={filteredRows}
+        loading={ordersQuery.isLoading}
+        query={query}
+        onSearch={setQuery}
+        emptyMessage="No purchase orders are available."
+        toolbarActions={(
+          <>
+            <SelectInput aria-label="Filter by supplier" value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} className="sm:w-44">
+              <option value="">All suppliers</option>
+              {[...new Set(rows.map((order) => order.supplier).filter(Boolean))].map((supplier) => <option key={supplier} value={supplier}>{supplier}</option>)}
             </SelectInput>
-          </FormField>
-          <FormField label="Status">
-            <SelectInput>
-              <option>All status</option>
-              {[...new Set(rows.map((order) => order.status).filter(Boolean))].map((status) => <option key={status}>{status}</option>)}
+            <SelectInput aria-label="Filter by status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="sm:w-36">
+              <option value="">All status</option>
+              {[...new Set(rows.map((order) => order.status).filter(Boolean))].map((status) => <option key={status} value={status}>{status}</option>)}
             </SelectInput>
-          </FormField>
-        </div>
-        <DataTable columns={columns} rows={rows} loading={ordersQuery.isLoading} query="" />
-      </section>
+            {canCreateAndReceive ? (
+              <Button type="button" className="gap-2" onClick={() => setShowCreate(true)}>
+                <Plus className="h-4 w-4" />
+                Create and receive PO
+              </Button>
+            ) : null}
+          </>
+        )}
+      />
 
       {canCreateAndReceive ? (
         <Modal

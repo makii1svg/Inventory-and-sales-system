@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { KeyRound, ShieldCheck, UsersRound } from 'lucide-react'
 
+import { KpiCard } from '../components/shared/ui'
 import { apiClient } from '../lib/api'
 
 function hasRolePermission(role, permission) {
@@ -22,23 +24,23 @@ export default function RolesPermissionsPage() {
   const roles = data?.roles ?? []
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Roles and permissions</h2>
-        <p className="text-sm text-slate-500">The admin role has every permission and cannot be edited.</p>
+    <section className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Roles" value={roles.length.toLocaleString()} icon={UsersRound} trendUnavailable loading={isLoading} footer="Roles in the permission matrix" />
+        <KpiCard label="Permission groups" value={(data?.groups ?? []).length.toLocaleString()} icon={ShieldCheck} trendUnavailable loading={isLoading} footer="Grouped by product area" />
+        <KpiCard label="Defined permissions" value={(data?.groups ?? []).reduce((count, group) => count + group.permissions.length, 0).toLocaleString()} icon={KeyRound} trendUnavailable loading={isLoading} footer="Admin role remains read-only" />
       </div>
-
       {error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Could not load the permission matrix.</p> : null}
       {updateStaffPermissions.error ? <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Could not update optional staff permissions.</p> : null}
       {isLoading ? <p className="text-sm text-slate-500">Loading permissions...</p> : null}
       {data ? (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="max-h-[70vh] min-h-[20rem] overflow-auto rounded-xl border border-[#E6EAF2] bg-white shadow-soft">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead className="sticky top-0 z-10 bg-[#F8FAFC] text-slate-600">
               <tr>
-                <th className="px-4 py-3 font-medium">Permission</th>
+                <th className="h-11 px-4 text-xs font-medium">Permission</th>
                 {roles.map((role) => (
-                  <th key={role.id} className="px-4 py-3 font-medium">
+                  <th key={role.id} className="h-11 px-4 text-xs font-medium">
                     <span className="block">{role.display_name}</span>
                     {role.name === 'admin' ? <span className="text-xs text-slate-500">Read-only</span> : null}
                   </th>
@@ -77,15 +79,15 @@ function FragmentGroup({ group, roles, disabled, onOptionalPermissionChange }) {
   return (
     <>
       <tr className="bg-slate-50">
-        <th colSpan={roles.length + 1} className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <th colSpan={roles.length + 1} className="h-10 border-b border-[#EEF1F6] px-4 text-left text-xs font-semibold text-slate-500">
           {group.name}
         </th>
       </tr>
       {group.permissions.map((permission) => (
-        <tr key={permission} className="border-t border-slate-100">
-          <td className="px-4 py-3 font-mono text-xs text-slate-700">{permission}</td>
+        <tr key={permission} className="border-t border-[#EEF1F6]">
+          <td className="h-11 px-4 font-mono text-xs text-slate-700">{permission}</td>
           {roles.map((role) => (
-            <td key={role.id} className="px-4 py-3 text-slate-700">
+            <td key={role.id} className="h-11 px-4 text-sm text-slate-700">
                 {isOptionalStaffGroup && role.name === 'staff' && role.editable ? (
                   <input
                     type="checkbox"

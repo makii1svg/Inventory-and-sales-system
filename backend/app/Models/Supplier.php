@@ -15,6 +15,7 @@ class Supplier extends Model
         'email',
         'phone',
         'address',
+        'notes',
     ];
 
     public function products()

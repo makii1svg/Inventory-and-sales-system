@@ -23,11 +23,36 @@ class InventoryService
         ?string $reasonCode = null,
     ): Product
     {
+        return $this->adjustStockAndGetCost(
+            $productId,
+            $quantity,
+            $movementType,
+            $userId,
+            $reference,
+            $notes,
+            $reasonCode,
+        )['product'];
+    }
+
+    /**
+     * @return array{product: Product, unit_cost: ?float}
+     */
+    public function adjustStockAndGetCost(
+        int $productId,
+        int $quantity,
+        string $movementType,
+        ?int $userId,
+        ?string $reference = null,
+        ?string $notes = null,
+        ?string $reasonCode = null,
+    ): array
+    {
         return DB::transaction(function () use ($productId, $quantity, $movementType, $userId, $reference, $notes, $reasonCode) {
             $product = Product::query()->whereKey($productId)->lockForUpdate()->firstOrFail();
             $this->ensureBatchBalance($product);
 
             $nextQuantity = (int) $product->stock_quantity + (int) $quantity;
+            $unitCost = null;
 
             if ($nextQuantity < 0) {
                 throw ValidationException::withMessages([
@@ -45,7 +70,8 @@ class InventoryService
                     $reference,
                 );
             } elseif ($quantity < 0) {
-                $this->consumeBatches($product, abs($quantity));
+                $unitCost = $this->consumeBatches($product, abs($quantity))
+                    ?? (float) $product->cost_price;
             }
 
             $product->stock_quantity = $nextQuantity;
@@ -64,7 +90,10 @@ class InventoryService
 
             $this->syncLowStockNotifications($product);
 
-            return $product->fresh();
+            return [
+                'product' => $product->fresh(),
+                'unit_cost' => $unitCost,
+            ];
         });
     }
 
@@ -164,9 +193,11 @@ class InventoryService
         }
     }
 
-    private function consumeBatches(Product $product, int $quantity): void
+    private function consumeBatches(Product $product, int $quantity): ?float
     {
         $remaining = $quantity;
+        $totalCost = 0;
+        $hasUnitCost = true;
         $batches = StockBatch::query()
             ->where('product_id', $product->id)
             ->where('quantity_on_hand', '>', 0)
@@ -178,6 +209,11 @@ class InventoryService
 
         foreach ($batches as $batch) {
             $deduction = min($remaining, (int) $batch->quantity_on_hand);
+            if ($batch->unit_cost === null) {
+                $hasUnitCost = false;
+            } else {
+                $totalCost += $deduction * (float) $batch->unit_cost;
+            }
             $batch->quantity_on_hand -= $deduction;
             $batch->save();
             $remaining -= $deduction;
@@ -192,6 +228,10 @@ class InventoryService
                 'quantity' => "Insufficient batch stock for {$product->name}.",
             ]);
         }
+
+        return $hasUnitCost && $quantity > 0
+            ? round($totalCost / $quantity, 2)
+            : null;
     }
 
     private function syncLowStockNotifications(Product $product): void

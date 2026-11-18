@@ -2,14 +2,6 @@ import axios from 'axios'
 
 const STORAGE_KEY = 'inventory_sales_token'
 
-const demoUser = {
-  id: 1,
-  name: 'Ariana Cruz',
-  email: 'admin@sunrise.local',
-  role: 'Administrator',
-  permissions: ['*'],
-}
-
 function normalizeUser(rawUser = null) {
   if (!rawUser) return null
 
@@ -96,27 +88,17 @@ export async function getCsrfCookie() {
 }
 
 export async function loginRequest(payload) {
-  try {
-    await getCsrfCookie()
-    const response = await apiClient.post('/api/auth/login', payload)
-    const user = normalizeUser(response.data.user ?? response.data)
+  await getCsrfCookie()
+  const response = await apiClient.post('/api/auth/login', payload)
+  const user = normalizeUser(response.data.user ?? response.data)
 
-    if (response.data?.token) {
-      persistToken(response.data.token)
-    }
+  if (response.data?.token) {
+    persistToken(response.data.token)
+  }
 
-    return {
-      ...response.data,
-      user,
-    }
-  } catch {
-    persistToken(null)
-
-    return {
-      user: demoUser,
-      token: 'demo-token',
-      message: 'Demo mode active',
-    }
+  return {
+    ...response.data,
+    user,
   }
 }
 

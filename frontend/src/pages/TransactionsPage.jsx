@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Ban, CircleCheck, Receipt } from 'lucide-react'
 
-import { Badge, Button, DataTable, FormField, TextInput } from '../components/shared/ui'
+import { Badge, Button, DataTable, FormField, KpiCard, TextInput } from '../components/shared/ui'
 import { useAuth } from '../context/AuthContext'
 import { apiClient } from '../lib/api'
 import { hasPermission } from '../lib/permissions'
@@ -65,35 +66,43 @@ export default function TransactionsPage() {
   const columns = isLimitedView ? limitedColumns : fullColumns
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold text-slate-900">Transactions</h2>
-        <p className="text-sm text-slate-500">
-          {isLimitedView ? 'Receipt history with item names and quantities.' : 'Review your permitted transaction history.'}
-        </p>
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Transactions" value={rows.length.toLocaleString()} icon={Receipt} trendUnavailable loading={salesQuery.isLoading} footer="Sales in your permitted list" />
+        <KpiCard label="Completed" value={rows.filter((sale) => sale.status === 'completed').length.toLocaleString()} icon={CircleCheck} trendUnavailable loading={salesQuery.isLoading} footer="Completed transactions" />
+        <KpiCard label="Voided" value={rows.filter((sale) => sale.status === 'voided').length.toLocaleString()} icon={Ban} trendUnavailable loading={salesQuery.isLoading} footer="Voided transactions" />
       </div>
 
       {salesQuery.error ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{salesQuery.error?.response?.data?.message ?? 'Could not load sales.'}</p> : null}
       {voidMutation.error ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{voidMutation.error?.response?.data?.message ?? 'Could not void sale.'}</p> : null}
 
-      <DataTable columns={columns} rows={rows} loading={salesQuery.isLoading} query="" />
+      <DataTable
+        columns={columns}
+        rows={rows}
+        loading={salesQuery.isLoading}
+        query=""
+        emptyMessage={isLimitedView ? 'No receipts are available.' : 'No transactions are available.'}
+        toolbarActions={isLimitedView ? null : <span className="text-xs text-slate-500">Sales history</span>}
+      />
 
       {canVoid ? (
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="void-sale-title"
-          className={selectedSale ? 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4' : 'hidden'}
+          className={selectedSale ? 'fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-0 sm:p-4' : 'hidden'}
         >
-          <div className="w-full max-w-md space-y-4 rounded-xl bg-white p-6 shadow-xl">
+          <div className="flex h-dvh w-full max-w-md flex-col border border-[#E6EAF2] bg-white p-4 shadow-soft sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-xl sm:p-5">
             <div>
               <h3 id="void-sale-title" className="text-lg font-semibold text-slate-900">Void transaction</h3>
               <p className="mt-1 text-sm text-slate-500">This action returns the sale items to stock.</p>
             </div>
-            <FormField label="Reason for void">
-              <TextInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Describe the issue" />
-            </FormField>
-            <div className="flex justify-end gap-3">
+            <div className="flex-1 py-5">
+              <FormField label="Reason for void">
+                <TextInput value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Describe the issue" />
+              </FormField>
+            </div>
+            <div className="sticky bottom-0 flex justify-end gap-3 border-t border-[#EEF1F6] bg-white pt-3">
               <Button variant="secondary" type="button" onClick={() => setSelectedSale(null)}>Cancel</Button>
               <Button
                 variant="danger"

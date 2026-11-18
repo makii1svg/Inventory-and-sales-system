@@ -8,6 +8,10 @@ class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
 
+    protected $casts = [
+        'value' => 'json',
+    ];
+
     public $timestamps = false;
 
     public static function getValue(string $key, mixed $default = null): mixed

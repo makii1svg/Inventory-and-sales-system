@@ -1,6 +1,6 @@
-import { Bell } from 'lucide-react'
+import { AlertTriangle, Bell, PackageSearch } from 'lucide-react'
 
-import { Badge, DataTable } from '../components/shared/ui'
+import { Badge, DataTable, KpiCard } from '../components/shared/ui'
 import { alerts, unreadAlertCount } from '../lib/alerts'
 
 const columns = [
@@ -26,26 +26,21 @@ const expiryColumns = [
 
 export default function AlertsPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-slate-900">Expiry and alerts</h2>
-          <p className="text-sm text-slate-500">Review expiring stock and operational notifications.</p>
-        </div>
-        <div className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
-          <Bell className="h-4 w-4" />
-          {unreadAlertCount} unread
-        </div>
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <KpiCard label="Unread alerts" value={unreadAlertCount.toLocaleString()} icon={Bell} trendUnavailable footer="Unread store notifications" />
+        <KpiCard label="Expiry records" value={expiryRows.length.toLocaleString()} icon={PackageSearch} trendUnavailable footer="Rows in the expiry monitor" />
+        <KpiCard label="High severity" value={alerts.filter((alert) => alert.severity === 'High').length.toLocaleString()} icon={AlertTriangle} trendUnavailable footer="High-severity alerts in the list" />
       </div>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-slate-900">Expiry monitor</h3>
-        <DataTable columns={expiryColumns} rows={expiryRows} query="" onSearch={() => {}} />
+        <h2 className="text-sm font-semibold text-slate-900">Expiry monitor</h2>
+        <DataTable columns={expiryColumns} rows={expiryRows} query="" emptyMessage="No expiring stock is listed." />
       </section>
 
       <section className="space-y-3">
-        <h3 className="text-lg font-semibold text-slate-900">All alerts</h3>
-        <DataTable columns={columns} rows={alerts} query="" onSearch={() => {}} />
+        <h2 className="text-sm font-semibold text-slate-900">All alerts</h2>
+        <DataTable columns={columns} rows={alerts} query="" emptyMessage="No alerts are available." />
       </section>
     </div>
   )

@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './components/AppShell'
 import { ToastProvider } from './components/shared/ToastProvider'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { getHomePath } from './lib/permissions'
 import RequirePermission from './routes/RequirePermission'
 
 const queryClient = new QueryClient({
@@ -29,17 +30,17 @@ const ForbiddenPage = lazy(() => import('./pages/ForbiddenPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 function AppRoutes() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
 
   return (
     <Routes>
       <Route
         path="/login"
-        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
+        element={isAuthenticated ? <Navigate to={getHomePath(user)} replace /> : <LoginPage />}
       />
 
       <Route path="/" element={<RequirePermission><AppShell /></RequirePermission>}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<Navigate to={getHomePath(user)} replace />} />
         <Route path="dashboard" element={<RequirePermission permissions={['dashboard.view']}><DashboardPage /></RequirePermission>} />
         <Route
           path="inventory"

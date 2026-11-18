@@ -25,12 +25,10 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (credentials) => {
     const result = await loginRequest(credentials)
-    const activeUser = result?.user ?? {
-      id: 1,
-      name: 'Ariana Cruz',
-      email: credentials.email,
-      role: 'Administrator',
-      permissions: ['*'],
+    const activeUser = result?.user
+
+    if (!activeUser) {
+      throw new Error('The server did not return a user profile.')
     }
 
     setUser(activeUser)

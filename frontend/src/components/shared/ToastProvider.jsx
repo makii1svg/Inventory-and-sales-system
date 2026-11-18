@@ -15,6 +15,9 @@ export function ToastProvider({ children }) {
       setToasts((current) => current.filter((entry) => entry.id !== id))
     }, 3500)
   }, [])
+  const dismiss = useCallback((id) => {
+    setToasts((current) => current.filter((entry) => entry.id !== id))
+  }, [])
 
   const value = useMemo(() => ({ push }), [push])
 
@@ -26,7 +29,7 @@ export function ToastProvider({ children }) {
           <div
             key={toast.id}
             className={[
-              'pointer-events-auto rounded-lg border border-slate-200 bg-white p-3 shadow-lg',
+              'pointer-events-auto rounded-xl border border-[#E6EAF2] bg-white p-4 shadow-soft',
               toast.type === 'success' && 'border-emerald-200 bg-emerald-50',
               toast.type === 'error' && 'border-red-200 bg-red-50',
               toast.type === 'warning' && 'border-amber-200 bg-amber-50',
@@ -43,7 +46,7 @@ export function ToastProvider({ children }) {
               ) : (
                 <p className="text-sm text-slate-700">{toast.message}</p>
               )}
-              <button type="button" className="text-xs text-slate-500">Close</button>
+              <button type="button" onClick={() => dismiss(toast.id)} className="text-xs text-slate-500">Close</button>
             </div>
           </div>
         ))}

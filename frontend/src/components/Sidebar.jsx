@@ -11,19 +11,18 @@ const ADMIN_ITEMS = [
   { label: 'Dashboard', path: '/dashboard', permissions: ['dashboard.view'] },
   { label: 'Data Analytics', path: '/analytics?tab=overview', permissions: ['analytics.view', 'reports.view'] },
   {
-    label: 'Inventory Management',
+    label: 'Inventory',
     path: '/inventory?tab=products',
     permissions: ['products.view', 'categories.manage', 'stock.view', 'stock.in', 'stock.adjust'],
   },
   {
-    label: 'Supplier and Purchase Management',
+    label: 'Supplier and Purchase',
     path: '/purchasing?tab=suppliers',
     permissions: ['suppliers.view', 'suppliers.manage', 'purchases.view', 'purchases.create', 'purchases.receive'],
   },
-  { label: 'Sales Management', path: '/sales/pos?tab=pos', permissions: ['pos.use', 'sales.view_all'] },
-  { label: 'Expense Management', path: '/expenses', permissions: ['expenses.view', 'expenses.manage'] },
+  { label: 'Expenses', path: '/expenses', permissions: ['expenses.view', 'expenses.manage'] },
   {
-    label: 'User Management',
+    label: 'Users',
     path: '/users?tab=users',
     permissions: ['users.view', 'roles.view', 'reports.view'],
   },
@@ -32,25 +31,19 @@ const ADMIN_ITEMS = [
 const STAFF_ITEMS = [
   { label: 'Dashboard', path: '/dashboard', permissions: ['dashboard.view'] },
   {
-    label: 'Inventory Management',
+    label: 'Inventory',
     path: '/inventory?tab=products',
     permissions: ['products.view', 'categories.manage', 'stock.view', 'stock.in', 'stock.adjust'],
   },
   {
-    label: 'Supplier and Purchase Management',
+    label: 'Supplier and Purchase',
     path: '/purchasing?tab=suppliers',
     permissions: ['suppliers.view', 'suppliers.manage', 'purchases.view', 'purchases.create', 'purchases.receive'],
   },
 ]
 
 const CASHIER_ITEMS = [
-  { label: 'Dashboard', path: '/dashboard', permissions: ['dashboard.view'] },
   { label: 'Sales / POS', path: '/sales/pos?tab=pos', permissions: ['pos.use'] },
-  {
-    label: 'Transaction History',
-    path: '/sales/transactions?tab=transactions',
-    permissions: ['sales.view_own', 'sales.view_all', 'sales.view_limited'],
-  },
 ]
 
 function useStoreSettings() {
@@ -100,7 +93,7 @@ function Navigation({ user, onClose }) {
             }`
           }
         >
-          <span>{item.label}</span>
+          <span className="min-w-0 leading-5">{item.label}</span>
           {onClose ? <ChevronRight className="h-4 w-4" /> : null}
         </NavLink>
       ))}
@@ -156,7 +149,7 @@ export default function Sidebar() {
   const { data: settings } = useStoreSettings()
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] flex-col bg-[#0E1A33] text-slate-300 lg:flex">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-[var(--sidebar-width)] flex-col bg-[#0E1A33] text-slate-300 lg:flex">
       <StoreBrand settings={settings} user={user} />
       <div className="flex-1 overflow-y-auto px-3 py-4">
         <Navigation user={user} />
@@ -183,7 +176,7 @@ export function MobileSidebar({ open, onClose }) {
         onClick={onClose}
         aria-label="Close navigation"
       />
-      <aside className="fixed inset-y-0 left-0 z-40 flex w-[84%] max-w-[300px] flex-col bg-[#0E1A33] p-4 text-slate-300 lg:hidden">
+      <aside className="fixed inset-y-0 left-0 z-40 flex w-[min(84vw,320px)] flex-col bg-[#0E1A33] p-4 text-slate-300 lg:hidden">
         <StoreBrand settings={settings} user={user} mobile onClose={onClose} />
         <div className="flex-1 overflow-y-auto">
           <Navigation user={user} onClose={onClose} />

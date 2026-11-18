@@ -4,9 +4,9 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { canAccessTab } from '../lib/permissions'
 import ForbiddenPage from '../pages/ForbiddenPage'
-import { TabsList } from './shared/ui'
+import { PageHeader, TabsList } from './shared/ui'
 
-export default function UrlTabSection({ tabs }) {
+export default function UrlTabSection({ tabs, sectionSubtitle }) {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const visibleTabs = tabs.filter((tab) => canAccessTab(user, tab))
@@ -29,6 +29,11 @@ export default function UrlTabSection({ tabs }) {
 
   return (
     <div className="space-y-6">
+      <PageHeader
+        title={activeTab.label}
+        subtitle={activeTab.subtitle ?? sectionSubtitle}
+        showDateRange={false}
+      />
       <TabsList
         value={activeTab.value}
         onValueChange={(value) => {

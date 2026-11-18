@@ -49,6 +49,10 @@ class User extends Authenticatable
 
     public function getPermissionsAttribute(): array
     {
+        if ($this->isCashier()) {
+            return ['pos.use'];
+        }
+
         $permissions = $this->roles->flatMap(fn ($role) => $role->permissions ?? []);
 
         if ($permissions->contains('*')) {
@@ -89,6 +93,14 @@ class User extends Authenticatable
 
     public function hasPermission(string $permission): bool
     {
+        if ($this->isCashier()) {
+            return $permission === 'pos.use';
+        }
+
+        if (in_array($permission, ['pos.use', 'sales.create'], true)) {
+            return false;
+        }
+
         $permissions = $this->permissions;
 
         return in_array('*', $permissions, true) || in_array($permission, $permissions, true);
@@ -118,6 +130,11 @@ class User extends Authenticatable
             'password' => 'hashed',
             'status' => 'string',
         ];
+    }
+
+    private function isCashier(): bool
+    {
+        return strtolower(trim((string) ($this->attributes['role'] ?? ''))) === 'cashier';
     }
 
 }

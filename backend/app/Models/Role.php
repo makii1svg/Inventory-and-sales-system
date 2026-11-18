@@ -25,14 +25,11 @@ class Role extends Model
             'notifications.view',
         ],
         'cashier' => [
-            'dashboard.view',
             'pos.use',
-            'sales.view_own',
         ],
     ];
 
     public const OPTIONAL_STAFF_PERMISSIONS = [
-        'pos.use',
         'sales.view_limited',
     ];
 
@@ -43,8 +40,8 @@ class Role extends Model
         'Suppliers' => ['suppliers.view', 'suppliers.manage'],
         'Stock' => ['stock.view', 'stock.adjust', 'stock.in'],
         'Purchases' => ['purchases.view', 'purchases.create', 'purchases.receive', 'purchases.pay', 'purchases.cancel'],
-        'POS and sales' => ['sales.create', 'sales.view_own', 'sales.view_all', 'sales.void'],
-        'Optional for staff' => ['pos.use', 'sales.view_limited'],
+        'POS and sales' => ['sales.view_own', 'sales.view_all', 'sales.void'],
+        'Optional for staff' => ['sales.view_limited'],
         'Notifications' => ['notifications.view'],
         'Analytics and reports' => ['analytics.view', 'reports.view'],
         'Administration' => ['users.view', 'users.manage', 'roles.view', 'roles.manage', 'settings.manage', 'expenses.view', 'expenses.manage'],
